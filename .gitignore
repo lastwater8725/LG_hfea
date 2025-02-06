@@ -1,0 +1,11 @@
+.venv
+.venv_310
+.ipynb_checkpoints
+~$*
+echo "data/train.csv" >> .gitignore
+echo "venv_310/Lib/site-packages/xgboost/lib/xgboost.dll" >> .gitignore
+
+data/
+venv_310/
+.venv/
+.ipynb_checkpoints
