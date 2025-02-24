@@ -7,6 +7,9 @@ from sklearn.model_selection import KFold
 from sklearn.calibration import IsotonicRegression
 import torch
 
+# ✅ FocalLoss를 별도의 파일에서 import
+from src.focal_loss import FocalLoss
+
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -33,17 +36,26 @@ kf = KFold(n_splits=5, shuffle=True, random_state=42)
 oof_preds = np.zeros(len(train))
 test_preds = np.zeros((len(test), 5))
 
-# ✅ AutoGluon 하이퍼파라미터 설정
+# ✅ AutoGluon 하이퍼파라미터 설정 (lambda 제거)
 hyperparams = {
-    'GBM': {'num_boost_round': 1000, 'objective': 'binary'},  # LightGBM
-    'CAT': {'iterations': 4733, 'loss_function': 'Logloss', 'task_type': 'GPU'},  # ✅ CatBoost 정상 실행
+    'GBM': {'num_boost_round': 500, 'objective': 'binary'},  # LightGBM
+    'CAT': {'iterations': 2000, 'depth': 6, 'task_type': 'GPU'},  # CatBoost
     'XGB': {
-        'n_estimators': 917,
+        'n_estimators': 500,
         'objective': 'binary:logistic',
         'tree_method': 'gpu_hist',
-        'scale_pos_weight': 2
+        'scale_pos_weight': 2  # 불균형 데이터 가중치 조절
+    },
+    'TABNET': {
+        'epochs': 20,  # TabNet 학습 반복 횟수
+        'custom_loss_function': FocalLoss(),  # ✅ TabNet에 Focal Loss 적용
+        'optimizer': 'adam',  # 옵티마이저
+        'virtual_batch_size': 128,  # 배치 크기
+        'momentum': 0.02,
+        'gamma': 1.3,
     }
 }
+
 
 # ✅ 5-Fold Cross Validation
 for fold, (train_idx, valid_idx) in enumerate(kf.split(train)):
@@ -66,19 +78,11 @@ for fold, (train_idx, valid_idx) in enumerate(kf.split(train)):
         hyperparameters=hyperparams
     )
 
-    # ✅ Out-of-Fold 예측 저장 (DataFrame/ndarray 대응)
-    pred_probs = predictor.predict_proba(TabularDataset(valid_fold))
-    if isinstance(pred_probs, pd.DataFrame):
-        oof_preds[valid_idx] = pred_probs.iloc[:, 1]  # ✅ 두 번째 열 (Positive Class)
-    else:
-        oof_preds[valid_idx] = pred_probs[:, 1]
+    # Out-of-Fold 예측 저장
+    oof_preds[valid_idx] = predictor.predict_proba(TabularDataset(valid_fold))[:, 1]
 
-    # ✅ Test 데이터 예측 저장
-    pred_probs_test = predictor.predict_proba(TabularDataset(test))
-    if isinstance(pred_probs_test, pd.DataFrame):
-        test_preds[:, fold] = pred_probs_test.iloc[:, 1]
-    else:
-        test_preds[:, fold] = pred_probs_test[:, 1]
+    # Test 데이터 예측 저장
+    test_preds[:, fold] = predictor.predict_proba(TabularDataset(test))[:, 1]
 
 # ✅ Test Prediction: 5개 Fold 평균
 final_test_preds = test_preds.mean(axis=1)
