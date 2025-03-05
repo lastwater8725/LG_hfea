@@ -47,11 +47,11 @@ for fold, (train_idx, valid_idx) in enumerate(kf.split(train)):
         label=label,
         problem_type='binary',
         eval_metric='roc_auc',
-        path='D:/AutogluonModels/ag-20250223_171750'
+       #path='D:/AutogluonModels/ag-20250223_171750'
     ).fit(
         train_data=TabularDataset(train_fold),
         presets='best_quality',  # 최고 성능 모델 (앙상블 포함)
-        time_limit=3600 * 6,  # 10시간 제한
+        time_limit=3600 * 36,  # 10시간 제한
         num_stack_levels=5,  # ✅ Stacking Ensemble (5-Layer)
         num_bag_folds=10,  # ✅ 10-Fold Bagging
         num_bag_sets=2,  # ✅ Bagging 2회 반복 (샘플링 다양화)
